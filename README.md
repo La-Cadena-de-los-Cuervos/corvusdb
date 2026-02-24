@@ -2,6 +2,12 @@
 
 Aplicación desktop (Opción A) para un "Compass interno" orientado a MongoDB/DocumentDB.
 
+Guia de instalacion para usuarios:
+- [INSTALL.md](/Users/antonio/github/jmercadoc/corvusdb/INSTALL.md)
+
+Manual interno de operacion:
+- [MANUAL_INTERNO.md](/Users/antonio/github/jmercadoc/corvusdb/MANUAL_INTERNO.md)
+
 ## Estructura
 
 - Frontend React + TypeScript + Vite: `src/`
