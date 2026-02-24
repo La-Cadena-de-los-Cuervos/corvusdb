@@ -1,0 +1,33 @@
+:root {
+  --bg: #f4f6f8;
+  --card: #ffffff;
+  --ink: #1b2430;
+  --muted: #5a6572;
+  --accent: #0a7f5a;
+  --line: #d7dde4;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); font-family: "IBM Plex Sans", "Segoe UI", sans-serif; background: radial-gradient(circle at 20% 0%, #eaf3ff, transparent 45%), var(--bg); }
+.app { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.hero h1 { margin: 0; font-size: 2rem; }
+.hero p { margin-top: 6px; color: var(--muted); }
+.panel { margin-top: 18px; padding: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.panel h2 { margin-top: 0; }
+.grid { display: grid; gap: 12px; }
+.grid.two { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+label { display: block; font-size: 0.9rem; color: var(--muted); }
+input, textarea, select, button { width: 100%; margin-top: 6px; border-radius: 8px; border: 1px solid var(--line); font: inherit; }
+input, select, button { height: 38px; padding: 0 10px; }
+textarea { min-height: 84px; padding: 10px; resize: vertical; }
+.checks { margin-top: 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+.checks label { display: flex; align-items: center; gap: 8px; }
+.checks input { width: auto; margin: 0; }
+.actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+button { cursor: pointer; background: var(--accent); color: #fff; border: none; }
+button.ghost { background: #f0f3f6; color: var(--ink); border: 1px solid var(--line); }
+button.link { background: transparent; color: var(--ink); border: 0; text-align: left; padding: 0; height: auto; }
+.collections { margin: 12px 0 0; padding-left: 20px; }
+#jsonResult { border: 1px solid var(--line); border-radius: 8px; background: #0f1720; color: #cde6ff; padding: 12px; overflow: auto; }
+.error-log { margin-top: 12px; border: 1px solid #d8a3a3; background: #fff1f1; color: #7a1a1a; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
+.ok { color: #0a7f5a; margin-top: 8px; }

@@ -1,0 +1,18 @@
+[
+  {
+    "id": "c04f949e-531d-472a-a868-7ef2d8944500",
+    "name": "Scheduling",
+    "host": "localhost",
+    "port": 27011,
+    "tls": true,
+    "ca_file": "/Users/antonio/pem/global-bundle.pem",
+    "auth_source": "admin",
+    "auth_mechanism": "SCRAM-SHA-1",
+    "username": "schedtraffic",
+    "default_db": null,
+    "retry_writes": false,
+    "direct_connection": true,
+    "tls_allow_invalid_hostnames": true,
+    "read_preference": "primary"
+  }
+]
