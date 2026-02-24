@@ -63,19 +63,31 @@ impl AppState {
 
         {
             let mut lock = self.inner.profiles.write().await;
+            let existing_for_fallback = lock.get(&profile_id).cloned().or_else(|| {
+                lock.values()
+                    .find(|candidate| {
+                        candidate.name.eq_ignore_ascii_case(&profile_name)
+                            && candidate.host.eq_ignore_ascii_case(&profile_host)
+                            && candidate.port == profile_port
+                    })
+                    .cloned()
+            });
 
             // If the client edits an existing profile without retyping password,
             // keep the in-memory password for the current process session.
             if profile.password.is_none() {
-                if let Some(existing) = lock.get(&profile_id) {
+                if let Some(existing) = &existing_for_fallback {
                     profile.password = existing.password.clone();
-                } else if let Some(existing) = lock.values().find(|candidate| {
-                    candidate.name.eq_ignore_ascii_case(&profile_name)
-                        && candidate.host.eq_ignore_ascii_case(&profile_host)
-                        && candidate.port == profile_port
-                        && candidate.password.is_some()
-                }) {
-                    profile.password = existing.password.clone();
+                }
+            }
+            if profile.username.is_none() {
+                if let Some(existing) = &existing_for_fallback {
+                    profile.username = existing.username.clone();
+                }
+            }
+            if profile.auth_mechanism.is_none() {
+                if let Some(existing) = &existing_for_fallback {
+                    profile.auth_mechanism = existing.auth_mechanism.clone();
                 }
             }
 

@@ -85,6 +85,21 @@ pub async fn test_connection(
 }
 
 #[tauri::command]
+pub async fn list_databases(
+    state: State<'_, AppSharedState>,
+    payload: ConnectionIdInput,
+) -> Result<Vec<String>, String> {
+    let client = state
+        .0
+        .get_client(&payload.connection_id)
+        .await
+        .map_err(into_string_error)?;
+    mongodb_service::list_database_names(&client)
+        .await
+        .map_err(into_string_error)
+}
+
+#[tauri::command]
 pub async fn list_collections(
     state: State<'_, AppSharedState>,
     payload: ListCollectionsInput,

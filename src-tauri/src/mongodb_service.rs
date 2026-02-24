@@ -105,6 +105,34 @@ fn map_mongo_op_error(
 }
 
 pub async fn build_client(profile: &ConnectionProfile) -> Result<Client, AppError> {
+    let mechanism = profile
+        .auth_mechanism
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    let username = profile.username.as_deref().unwrap_or_default().trim();
+    let password = profile.password.as_deref().unwrap_or_default();
+
+    if mechanism.starts_with("SCRAM") {
+        if username.is_empty() {
+            return Err(AppError::bad_request(
+                "Username is required for SCRAM authentication. Open connection settings and set Username."
+                    .to_string(),
+            ));
+        }
+        if password.is_empty() {
+            return Err(AppError::bad_request(
+                "Password is missing for this connection. Re-enter Password and save the connection."
+                    .to_string(),
+            ));
+        }
+    } else if !username.is_empty() && password.is_empty() {
+        return Err(AppError::bad_request(
+            "Username is present but Password is missing. Re-enter Password and save the connection."
+                .to_string(),
+        ));
+    }
+
     let uri = build_uri(profile);
     let options = ClientOptions::parse(uri).await?;
     Client::with_options(options).map_err(AppError::from)
@@ -148,12 +176,51 @@ pub async fn list_collection_names(client: &Client, database: &str) -> Result<Ve
     }
 }
 
+pub async fn list_database_names(client: &Client) -> Result<Vec<String>, AppError> {
+    match client.list_database_names().await {
+        Ok(names) => Ok(names),
+        Err(primary_err) => {
+            let fallback = client
+                .database("admin")
+                .run_command(doc! {
+                    "listDatabases": 1i32,
+                    "nameOnly": true,
+                    "authorizedDatabases": true
+                })
+                .await;
+            match fallback {
+                Ok(doc) => Ok(parse_database_names_from_list_databases(doc)),
+                Err(_) => Err(map_mongo_op_error(
+                    primary_err,
+                    "list databases",
+                    None,
+                    None,
+                )),
+            }
+        }
+    }
+}
+
 fn parse_collection_names_from_list_collections(doc: Document) -> Vec<String> {
     let mut names = Vec::new();
     if let Some(Bson::Document(cursor)) = doc.get("cursor")
         && let Some(Bson::Array(batch)) = cursor.get("firstBatch")
     {
         for item in batch {
+            if let Bson::Document(entry) = item
+                && let Some(Bson::String(name)) = entry.get("name")
+            {
+                names.push(name.clone());
+            }
+        }
+    }
+    names
+}
+
+fn parse_database_names_from_list_databases(doc: Document) -> Vec<String> {
+    let mut names = Vec::new();
+    if let Some(Bson::Array(databases)) = doc.get("databases") {
+        for item in databases {
             if let Bson::Document(entry) = item
                 && let Some(Bson::String(name)) = entry.get("name")
             {

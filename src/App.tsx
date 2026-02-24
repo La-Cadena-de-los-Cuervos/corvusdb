@@ -62,22 +62,40 @@ async function call<T>(cmd: string, payload?: unknown): Promise<T> {
   return invoke<T>(cmd, { payload });
 }
 
+function normalizeSmartQuotes(input: string): string {
+  return input
+    .replace(/“/g, "\"")
+    .replace(/”/g, "\"")
+    .replace(/‘/g, "'")
+    .replace(/’/g, "'");
+}
+
+function parseJsonInput(input: string): unknown {
+  const raw = input?.trim() || "{}";
+  return JSON.parse(normalizeSmartQuotes(raw));
+}
+
 export default function App() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [form, setForm] = useState<ConnectionForm>(defaultForm);
-  const [database, setDatabase] = useState("");
-  const [collection, setCollection] = useState("");
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
+
+  const [databases, setDatabases] = useState<string[]>([]);
+  const [selectedDatabase, setSelectedDatabase] = useState("");
+  const [collections, setCollections] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState("");
+
   const [filter, setFilter] = useState("{}");
   const [projection, setProjection] = useState("{}");
   const [sort, setSort] = useState("{}");
   const [limit, setLimit] = useState(100);
-  const [collections, setCollections] = useState<string[]>([]);
+
   const [resultJson, setResultJson] = useState("[]");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const selected = useMemo(
+  const selectedProfile = useMemo(
     () => profiles.find((p) => p.id === selectedId) ?? null,
     [profiles, selectedId]
   );
@@ -87,27 +105,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!selected) return;
+    if (!selectedProfile) return;
     setForm((f) => ({
       ...f,
-      id: selected.id,
-      name: selected.name,
-      host: selected.host,
-      port: selected.port,
-      tls: selected.tls,
-      ca_file: selected.ca_file ?? "",
-      auth_source: selected.auth_source ?? "",
-      auth_mechanism: selected.auth_mechanism ?? "SCRAM-SHA-1",
-      username: selected.username ?? "",
+      id: selectedProfile.id,
+      name: selectedProfile.name,
+      host: selectedProfile.host,
+      port: selectedProfile.port,
+      tls: selectedProfile.tls,
+      ca_file: selectedProfile.ca_file ?? "",
+      auth_source: selectedProfile.auth_source ?? "",
+      auth_mechanism: selectedProfile.auth_mechanism ?? "SCRAM-SHA-1",
+      username: selectedProfile.username ?? "",
       password: "",
-      default_db: selected.default_db ?? "",
-      retry_writes: selected.retry_writes,
-      direct_connection: selected.direct_connection,
-      tls_allow_invalid_hostnames: selected.tls_allow_invalid_hostnames,
-      read_preference: selected.read_preference ?? "primary"
+      default_db: selectedProfile.default_db ?? "",
+      retry_writes: selectedProfile.retry_writes,
+      direct_connection: selectedProfile.direct_connection,
+      tls_allow_invalid_hostnames: selectedProfile.tls_allow_invalid_hostnames,
+      read_preference: selectedProfile.read_preference ?? "primary"
     }));
-    if (selected.default_db) setDatabase(selected.default_db);
-  }, [selected]);
+  }, [selectedProfile]);
 
   useEffect(() => {
     if (form.tunnel_mode) {
@@ -123,7 +140,11 @@ export default function App() {
     try {
       const data = await call<Profile[]>("list_connections");
       setProfiles(data);
-      if (!selectedId && data.length) setSelectedId(data[0].id);
+      if (!selectedId && data.length) {
+        const first = data[0];
+        setSelectedId(first.id);
+        await loadDatabases(first.id, first.default_db ?? "");
+      }
       setError("");
     } catch (e) {
       setError(String(e));
@@ -133,6 +154,12 @@ export default function App() {
   async function saveConnection(e: FormEvent) {
     e.preventDefault();
     try {
+      const authMechanism = form.auth_mechanism?.trim() || null;
+      const username = form.username?.trim() || null;
+      if ((authMechanism || "").toUpperCase().startsWith("SCRAM") && !username) {
+        throw new Error("Username is required when Auth Mechanism is SCRAM");
+      }
+
       const payload: ConnectionForm = {
         ...form,
         id: form.id ?? (selectedId || null),
@@ -140,17 +167,20 @@ export default function App() {
         host: form.host.trim(),
         ca_file: form.ca_file?.trim() || null,
         auth_source: form.auth_source?.trim() || null,
-        auth_mechanism: form.auth_mechanism?.trim() || null,
-        username: form.username?.trim() || null,
+        auth_mechanism: authMechanism,
+        username,
         password: form.password || null,
         default_db: form.default_db?.trim() || null,
         read_preference: form.read_preference?.trim() || null
       };
+
       const saved = await call<Profile>("save_connection", payload);
       setSelectedId(saved.id);
       setMessage("Connection saved");
       setError("");
       await loadConnections();
+      await loadDatabases(saved.id, saved.default_db ?? "");
+      setShowConnectionForm(false);
     } catch (e) {
       setError(String(e));
     }
@@ -167,14 +197,34 @@ export default function App() {
     }
   }
 
-  async function loadCollections() {
-    if (!selectedId || !database.trim()) return;
+  async function loadDatabases(connectionId: string, preferredDb = "") {
+    try {
+      const names = await call<string[]>("list_databases", { connection_id: connectionId });
+      setDatabases(names);
+      const nextDb = preferredDb || names[0] || "";
+      setSelectedDatabase(nextDb);
+      setCollections([]);
+      setSelectedCollection("");
+      if (nextDb) {
+        await loadCollections(connectionId, nextDb);
+      }
+      setError("");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function loadCollections(connectionId = selectedId, dbName = selectedDatabase) {
+    if (!connectionId || !dbName) return;
     try {
       const resp = await call<CollectionsResponse>("list_collections", {
-        connection_id: selectedId,
-        database: database.trim()
+        connection_id: connectionId,
+        database: dbName
       });
       setCollections(resp.collections);
+      if (resp.collections.length > 0) {
+        setSelectedCollection((curr) => curr || resp.collections[0]);
+      }
       setMessage(`Loaded ${resp.collections.length} collections`);
       setError("");
     } catch (e) {
@@ -183,15 +233,15 @@ export default function App() {
   }
 
   async function runFind() {
-    if (!selectedId || !database.trim() || !collection.trim()) return;
+    if (!selectedId || !selectedDatabase || !selectedCollection) return;
     try {
       const rows = await call<unknown[]>("run_find_query", {
         connection_id: selectedId,
-        database: database.trim(),
-        collection: collection.trim(),
-        filter: JSON.parse(filter || "{}"),
-        projection: JSON.parse(projection || "{}"),
-        sort: JSON.parse(sort || "{}"),
+        database: selectedDatabase,
+        collection: selectedCollection,
+        filter: parseJsonInput(filter),
+        projection: parseJsonInput(projection),
+        sort: parseJsonInput(sort),
         limit
       });
       setResultJson(JSON.stringify(rows, null, 2));
@@ -202,86 +252,177 @@ export default function App() {
     }
   }
 
+  async function onSelectConnection(id: string) {
+    setSelectedId(id);
+    setDatabases([]);
+    setCollections([]);
+    setSelectedDatabase("");
+    setSelectedCollection("");
+    if (id) {
+      const profile = profiles.find((p) => p.id === id);
+      await loadDatabases(id, profile?.default_db ?? "");
+    }
+  }
+
+  async function onSelectDatabase(db: string) {
+    setSelectedDatabase(db);
+    setCollections([]);
+    setSelectedCollection("");
+    await loadCollections(selectedId, db);
+  }
+
   return (
-    <main className="app">
-      <header className="hero">
-        <h1>CorvusDB</h1>
-        <p>Internal MongoDB/DocumentDB explorer (Tauri)</p>
-      </header>
+    <main className="workspace">
+      <aside className="sidebar panel">
+        <div className="side-header">
+          <h1>CorvusDB</h1>
+          <p>Explorer</p>
+        </div>
 
-      <section className="panel">
-        <h2>Connection Manager</h2>
-        <form onSubmit={saveConnection}>
-          <div className="grid two">
-            <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-            <label>Host<input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} /></label>
-            <label>Port<input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: Number(e.target.value) })} /></label>
-            <label>Auth Source<input value={form.auth_source ?? ""} onChange={(e) => setForm({ ...form, auth_source: e.target.value })} /></label>
-            <label>Auth Mechanism<input value={form.auth_mechanism ?? ""} onChange={(e) => setForm({ ...form, auth_mechanism: e.target.value })} /></label>
-            <label>Username<input value={form.username ?? ""} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
-            <label>Password<input type="password" value={form.password ?? ""} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
-            <label>Default DB<input value={form.default_db ?? ""} onChange={(e) => setForm({ ...form, default_db: e.target.value })} /></label>
-            <label>Read Preference<input value={form.read_preference ?? ""} onChange={(e) => setForm({ ...form, read_preference: e.target.value })} /></label>
-            <label>CA file (.pem)<input value={form.ca_file ?? ""} onChange={(e) => setForm({ ...form, ca_file: e.target.value })} /></label>
+        <div className="section-title-row">
+          <h2>Connections</h2>
+          <div className="actions mini">
+            {showConnectionForm && (
+              <button form="connection-form" type="submit" className="small">
+                Save
+              </button>
+            )}
+            <button className="ghost small" onClick={() => setShowConnectionForm((s) => !s)}>
+              {showConnectionForm ? "Hide" : "Edit"}
+            </button>
           </div>
-          <div className="checks">
-            <label><input type="checkbox" checked={form.tls} onChange={(e) => setForm({ ...form, tls: e.target.checked })} /> TLS</label>
-            <label><input type="checkbox" checked={form.retry_writes} onChange={(e) => setForm({ ...form, retry_writes: e.target.checked })} /> retryWrites</label>
-            <label><input type="checkbox" disabled={form.tunnel_mode} checked={form.direct_connection} onChange={(e) => setForm({ ...form, direct_connection: e.target.checked })} /> directConnection</label>
-            <label><input type="checkbox" disabled={form.tunnel_mode} checked={form.tls_allow_invalid_hostnames} onChange={(e) => setForm({ ...form, tls_allow_invalid_hostnames: e.target.checked })} /> tlsAllowInvalidHostnames</label>
-            <label><input type="checkbox" checked={form.tunnel_mode} onChange={(e) => setForm({ ...form, tunnel_mode: e.target.checked })} /> tunnel mode</label>
-          </div>
-          <div className="actions">
-            <button type="submit">Save connection</button>
-            <button type="button" className="ghost" onClick={() => void loadConnections()}>Reload</button>
-          </div>
-        </form>
+        </div>
 
-        <label>Saved connections
-          <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-            <option value="">-- choose a connection --</option>
+        <label>
+          Saved
+          <select value={selectedId} onChange={(e) => void onSelectConnection(e.target.value)}>
+            <option value="">-- choose --</option>
             {profiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.host}:{p.port})</option>
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.host}:{p.port})
+              </option>
             ))}
           </select>
         </label>
-        <div className="actions">
-          <button type="button" onClick={() => void testConnection()}>Test selected connection</button>
-        </div>
-        {error && <pre className="error-log">{error}</pre>}
-        {message && <p className="ok">{message}</p>}
-      </section>
 
-      <section className="panel">
-        <h2>Explorer</h2>
-        <label>Database
-          <input value={database} onChange={(e) => setDatabase(e.target.value)} />
-        </label>
-        <div className="actions">
-          <button type="button" onClick={() => void loadCollections()}>Load collections</button>
+        <div className="actions compact">
+          <button onClick={() => void testConnection()}>Test</button>
+          <button className="ghost" onClick={() => void loadConnections()}>Reload</button>
         </div>
-        <ul className="collections">
-          {collections.map((c) => (
-            <li key={c}><button type="button" className="link" onClick={() => setCollection(c)}>{c}</button></li>
+
+        {showConnectionForm && (
+          <form id="connection-form" className="conn-form" onSubmit={saveConnection}>
+            <h3>Connection Settings</h3>
+            <label>Name<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+            <label>Host<input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} /></label>
+            <label>Port<input type="number" value={form.port} onChange={(e) => setForm({ ...form, port: Number(e.target.value) })} /></label>
+            <label>Username<input value={form.username ?? ""} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
+            <label>Password<input type="password" value={form.password ?? ""} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+            <label>Auth Source<input value={form.auth_source ?? ""} onChange={(e) => setForm({ ...form, auth_source: e.target.value })} /></label>
+            <label>Auth Mechanism<input value={form.auth_mechanism ?? ""} onChange={(e) => setForm({ ...form, auth_mechanism: e.target.value })} /></label>
+            <label>CA file (.pem)<input value={form.ca_file ?? ""} onChange={(e) => setForm({ ...form, ca_file: e.target.value })} /></label>
+            <label>Default DB<input value={form.default_db ?? ""} onChange={(e) => setForm({ ...form, default_db: e.target.value })} /></label>
+            <label>Read Preference<input value={form.read_preference ?? ""} onChange={(e) => setForm({ ...form, read_preference: e.target.value })} /></label>
+            <div className="checks compact">
+              <label><input type="checkbox" checked={form.tls} onChange={(e) => setForm({ ...form, tls: e.target.checked })} /> TLS</label>
+              <label><input type="checkbox" checked={form.retry_writes} onChange={(e) => setForm({ ...form, retry_writes: e.target.checked })} /> retryWrites</label>
+              <label><input type="checkbox" disabled={form.tunnel_mode} checked={form.direct_connection} onChange={(e) => setForm({ ...form, direct_connection: e.target.checked })} /> directConnection</label>
+              <label><input type="checkbox" disabled={form.tunnel_mode} checked={form.tls_allow_invalid_hostnames} onChange={(e) => setForm({ ...form, tls_allow_invalid_hostnames: e.target.checked })} /> tlsInvalidHost</label>
+              <label><input type="checkbox" checked={form.tunnel_mode} onChange={(e) => setForm({ ...form, tunnel_mode: e.target.checked })} /> tunnel mode</label>
+            </div>
+            <button type="submit">Save connection</button>
+          </form>
+        )}
+
+        <div className="section-title-row">
+          <h2>Databases</h2>
+          <button className="ghost small" onClick={() => void loadDatabases(selectedId, selectedDatabase)}>Refresh</button>
+        </div>
+        <div className="tree-list">
+          {databases.map((db) => (
+            <button
+              key={db}
+              className={`tree-item ${selectedDatabase === db ? "active" : ""}`}
+              onClick={() => void onSelectDatabase(db)}
+            >
+              {db}
+            </button>
           ))}
-        </ul>
-      </section>
+        </div>
 
-      <section className="panel">
-        <h2>Find</h2>
-        <div className="grid two">
-          <label>Collection<input value={collection} onChange={(e) => setCollection(e.target.value)} /></label>
-          <label>Limit<input type="number" min={1} max={1000} value={limit} onChange={(e) => setLimit(Number(e.target.value))} /></label>
+        <h2>Collections</h2>
+        <div className="tree-list">
+          {collections.map((c) => (
+            <button
+              key={c}
+              className={`tree-item ${selectedCollection === c ? "active" : ""}`}
+              onClick={() => setSelectedCollection(c)}
+            >
+              {c}
+            </button>
+          ))}
         </div>
-        <div className="grid one">
-          <label>Filter (JSON)<textarea value={filter} onChange={(e) => setFilter(e.target.value)} /></label>
-          <label>Projection (JSON)<textarea value={projection} onChange={(e) => setProjection(e.target.value)} /></label>
-          <label>Sort (JSON)<textarea value={sort} onChange={(e) => setSort(e.target.value)} /></label>
-        </div>
-        <div className="actions">
-          <button type="button" onClick={() => void runFind()}>Run find</button>
-        </div>
-        <pre id="jsonResult">{resultJson}</pre>
+      </aside>
+
+      <section className="main-area">
+        <section className="filter-panel panel">
+          <div className="section-title-row">
+            <h2>Query Filters</h2>
+            <button onClick={() => void runFind()}>Run find</button>
+          </div>
+          <div className="meta-row">
+            <span><strong>DB:</strong> {selectedDatabase || "-"}</span>
+            <span><strong>Collection:</strong> {selectedCollection || "-"}</span>
+          </div>
+          <div className="filter-grid">
+            <label>
+              Limit
+              <input type="number" min={1} max={1000} value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
+            </label>
+            <label>
+              Filter (JSON)
+              <textarea
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </label>
+            <label>
+              Projection (JSON)
+              <textarea
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                value={projection}
+                onChange={(e) => setProjection(e.target.value)}
+              />
+            </label>
+            <label>
+              Sort (JSON)
+              <textarea
+                spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                value={sort}
+                onChange={(e) => setSort(e.target.value)}
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="results-panel panel">
+          <div className="section-title-row">
+            <h2>Results</h2>
+            {message && <p className="ok">{message}</p>}
+          </div>
+          {error && <pre className="error-log">{error}</pre>}
+          <pre id="jsonResult">{resultJson}</pre>
+        </section>
       </section>
     </main>
   );
