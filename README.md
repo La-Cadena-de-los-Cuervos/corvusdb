@@ -13,6 +13,23 @@ Manual interno de operacion:
 - Frontend React + TypeScript + Vite: `src/`
 - Backend Tauri + Rust: `src-tauri/`
 
+## Caracteristicas actuales
+
+- Gestion de conexiones MongoDB/DocumentDB (guardar, editar, seleccionar, test).
+- Soporte de conexion por tunel (`localhost`) con TLS y `CA file (.pem)`.
+- Explorador de bases de datos y colecciones en panel lateral.
+- Consulta `find` con `filter`, `projection`, `sort` y `limit`.
+- Modo `UUID auto-match` para buscar UUID texto contra campos string y binary (`subType 03/04`).
+- Render de resultados por documento con scroll horizontal para contenido largo.
+- Acciones por documento en resultados:
+  - `Copy` al portapapeles.
+  - `Edit` inline y guardado.
+  - `Delete` con confirmacion modal.
+- Insercion de documentos mediante modal `Insert Document`.
+- Manejo de comillas tipograficas en filtros para evitar errores de parseo JSON.
+- Visualizacion de UUID almacenados como binary en formato legible.
+- Release automatizado en GitHub Actions para macOS, Windows y Linux.
+
 ## Instalacion desde GitHub Releases
 
 Para usuarios finales, no es necesario compilar:
