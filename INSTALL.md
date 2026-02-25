@@ -20,6 +20,10 @@ Si solo quieres usar la app, instala desde Releases y no compiles localmente.
 Si macOS bloquea la apertura por firma:
 - Ir a `System Settings > Privacy & Security`
 - En la advertencia de CorvusDB, seleccionar `Open Anyway`.
+- O ejecutar en Terminal:
+```bash
+xattr -dr com.apple.quarantine /Applications/CorvusDB.app
+```
 
 Si en Linux falla el `.deb` por dependencia faltante (`libwebkit2gtk-4.1-0`), ejecutar:
 ```bash
