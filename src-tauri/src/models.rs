@@ -196,7 +196,7 @@ pub struct FindRequest {
 impl FindRequest {
     pub fn parse_document(value: Option<&Value>) -> Result<Document, AppError> {
         match value {
-            Some(v) => bson::serialize_to_document(v)
+            Some(v) => serde_json::from_value::<Document>(v.clone())
                 .map_err(|e| AppError::bad_request(format!("invalid query json: {e}"))),
             None => Ok(Document::new()),
         }
@@ -223,7 +223,7 @@ impl AggregateRequest {
         let mut out = Vec::with_capacity(items.len());
         for stage in items {
             out.push(
-                bson::serialize_to_document(stage)
+                serde_json::from_value::<Document>(stage.clone())
                     .map_err(|e| AppError::bad_request(format!("invalid pipeline stage: {e}")))?,
             );
         }

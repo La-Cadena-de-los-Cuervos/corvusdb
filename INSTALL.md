@@ -2,6 +2,34 @@
 
 Esta guia explica como instalar y ejecutar CorvusDB (app desktop Tauri) para usuarios del equipo.
 
+## Instalacion rapida desde GitHub Releases (recomendada)
+
+Si solo quieres usar la app, instala desde Releases y no compiles localmente.
+
+1. Abre la seccion `Releases` del repositorio en GitHub.
+2. Descarga el artefacto de tu sistema operativo:
+   - macOS: `CorvusDB_<version>_aarch64.dmg` o `CorvusDB_<version>_x64.dmg`
+   - Windows: `CorvusDB_<version>_x64_en-US.msi` (o `.exe` si se publica)
+   - Linux: `.deb` / `.AppImage` / `.rpm` (segun la release)
+3. Instala:
+   - macOS: abrir `.dmg`, arrastrar `CorvusDB.app` a `Applications`
+   - Windows: ejecutar `.msi` y seguir asistente
+   - Linux Debian/Ubuntu: `sudo dpkg -i <archivo>.deb && sudo apt-get -f install`
+4. Ejecuta `CorvusDB`.
+
+Si macOS bloquea la apertura por firma:
+- Ir a `System Settings > Privacy & Security`
+- En la advertencia de CorvusDB, seleccionar `Open Anyway`.
+
+Si en Linux falla el `.deb` por dependencia faltante (`libwebkit2gtk-4.1-0`), ejecutar:
+```bash
+sudo apt update
+sudo apt install -y libwebkit2gtk-4.1-0
+sudo apt --fix-broken install
+```
+
+## Instalacion para desarrollo (compilar localmente)
+
 ## 1. Requisitos
 
 ## macOS

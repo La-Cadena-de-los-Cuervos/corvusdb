@@ -166,6 +166,29 @@ Publicación interna sugerida:
 2. Incluir checksum SHA256
 3. Adjuntar este manual + versión
 
+## 11.1 Publicar en GitHub Releases (automatizado)
+
+El repositorio incluye workflow en:
+- `.github/workflows/release.yml`
+
+Disparador:
+- push de tags con formato `v*` (ej. `v0.2.0`)
+
+Pasos:
+```bash
+git checkout main
+git pull
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+Resultado esperado:
+- GitHub Actions compila instaladores por SO y los adjunta en la Release `v0.2.0`.
+
+Verificación:
+1. Abrir pestaña `Actions` y validar job en verde.
+2. Abrir `Releases` y confirmar artefactos adjuntos.
+
 ## 12. Plantilla de reporte a soporte
 
 Copiar/pegar:

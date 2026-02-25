@@ -3,15 +3,28 @@
 Aplicación desktop (Opción A) para un "Compass interno" orientado a MongoDB/DocumentDB.
 
 Guia de instalacion para usuarios:
-- [INSTALL.md](/Users/antonio/github/jmercadoc/corvusdb/INSTALL.md)
+- [INSTALL.md](./INSTALL.md)
 
 Manual interno de operacion:
-- [MANUAL_INTERNO.md](/Users/antonio/github/jmercadoc/corvusdb/MANUAL_INTERNO.md)
+- [MANUAL_INTERNO.md](./MANUAL_INTERNO.md)
 
 ## Estructura
 
 - Frontend React + TypeScript + Vite: `src/`
 - Backend Tauri + Rust: `src-tauri/`
+
+## Instalacion desde GitHub Releases
+
+Para usuarios finales, no es necesario compilar:
+
+1. Abrir la pagina de `Releases` del repositorio.
+2. Descargar el instalador de tu sistema operativo:
+   - macOS: `.dmg` (o `.app` en zip si se publica asi)
+   - Windows: `.msi` o `.exe`
+   - Linux: `.deb` / `.AppImage` / `.rpm` (segun artefactos publicados)
+3. Instalar y abrir `CorvusDB`.
+
+Guia detallada: [INSTALL.md](./INSTALL.md)
 
 ## Desarrollo
 

@@ -48,6 +48,10 @@ body {
   min-width: 0;
 }
 
+.filter-panel {
+  overflow-y: auto;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -160,6 +164,12 @@ button.small {
   padding: 0 10px;
 }
 
+button.danger {
+  background: rgba(140, 34, 50, 0.92);
+  color: #ffdbe1;
+  border: 1px solid #b55b69;
+}
+
 .actions {
   margin-top: 8px;
   display: flex;
@@ -250,9 +260,53 @@ button.small {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: 120px 1fr 1fr 1fr;
+  grid-template-columns: 120px 150px 1fr 1fr 1fr;
   gap: 8px;
   align-items: start;
+}
+
+.insert-doc {
+  min-height: 320px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 20, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.modal {
+  width: min(980px, 100%);
+  max-height: min(760px, 90vh);
+  overflow: auto;
+}
+
+.modal.modal-sm {
+  width: min(520px, 100%);
+}
+
+.modal-copy {
+  margin: 4px 0 0;
+  color: #c6ddff;
+}
+
+.inline-check {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-check input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  margin: 0;
+  accent-color: var(--accent);
+  align-self: flex-start;
 }
 
 .results-panel {
@@ -279,12 +333,73 @@ button.small {
   border-radius: 10px;
   background: #071326;
   color: #cfe9ff;
-  padding: 12px;
-  overflow-x: auto;
+  padding: 10px;
+  overflow-x: hidden;
   overflow-y: auto;
+}
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.result-doc-wrap {
+  position: relative;
+  border: 1px solid #284a7e;
+  border-radius: 10px;
+  background: #0a1a33;
+  padding: 10px;
+}
+
+.result-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.result-doc-wrap:hover .result-actions,
+.result-doc-wrap:focus-within .result-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.result-doc {
+  margin: 0;
+  padding: 20px 0 0;
+  overflow-x: auto;
+  overflow-y: visible;
   white-space: pre;
   word-break: normal;
   overflow-wrap: normal;
+  line-height: 1.35;
+}
+
+.result-doc.empty {
+  border: 1px dashed #284a7e;
+  border-radius: 8px;
+}
+
+.result-edit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 20px;
+}
+
+.result-edit {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.result-edit-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .error-log {
