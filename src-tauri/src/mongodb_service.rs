@@ -1,4 +1,4 @@
-use bson::{Bson, Document, doc};
+use bson::{Bson, Document, doc, spec::BinarySubtype};
 use mongodb::{Client, options::{ClientOptions, FindOptions}};
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use serde_json::Value;
@@ -265,7 +265,8 @@ pub async fn find_documents(
         .map_err(|err| map_mongo_op_error(err, "find", Some(database), Some(collection)))?
     {
         let doc = cursor.deserialize_current()?;
-        let bson_value = Bson::Document(doc);
+        let mut bson_value = Bson::Document(doc);
+        rewrite_uuid_binary_in_bson(&mut bson_value);
         let json_value = bson_value.into_relaxed_extjson();
         out.push(json_value);
     }
@@ -296,9 +297,36 @@ pub async fn aggregate_documents(
         .map_err(|err| map_mongo_op_error(err, "aggregate", Some(database), Some(collection)))?
     {
         let doc = cursor.deserialize_current()?;
-        out.push(Bson::Document(doc).into_relaxed_extjson());
+        let mut bson_value = Bson::Document(doc);
+        rewrite_uuid_binary_in_bson(&mut bson_value);
+        out.push(bson_value.into_relaxed_extjson());
     }
     Ok(out)
+}
+
+fn rewrite_uuid_binary_in_bson(value: &mut Bson) {
+    match value {
+        Bson::Document(doc) => {
+            for (_, nested) in doc.iter_mut() {
+                rewrite_uuid_binary_in_bson(nested);
+            }
+        }
+        Bson::Array(arr) => {
+            for nested in arr.iter_mut() {
+                rewrite_uuid_binary_in_bson(nested);
+            }
+        }
+        Bson::Binary(bin) => {
+            let is_uuid_subtype = matches!(bin.subtype, BinarySubtype::Uuid | BinarySubtype::UuidOld);
+            if is_uuid_subtype
+                && bin.bytes.len() == 16
+                && let Ok(parsed) = uuid::Uuid::from_slice(&bin.bytes)
+            {
+                *value = Bson::String(parsed.hyphenated().to_string());
+            }
+        }
+        _ => {}
+    }
 }
 
 pub async fn insert_document(

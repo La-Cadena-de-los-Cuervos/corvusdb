@@ -162,7 +162,7 @@ export default function App() {
 
       const payload: ConnectionForm = {
         ...form,
-        id: form.id ?? (selectedId || null),
+        id: form.id ?? null,
         name: form.name.trim(),
         host: form.host.trim(),
         ca_file: form.ca_file?.trim() || null,
@@ -271,6 +271,11 @@ export default function App() {
     await loadCollections(selectedId, db);
   }
 
+  function startNewConnection() {
+    setForm({ ...defaultForm, id: null });
+    setShowConnectionForm(true);
+  }
+
   return (
     <main className="workspace">
       <aside className="sidebar panel">
@@ -282,6 +287,9 @@ export default function App() {
         <div className="section-title-row">
           <h2>Connections</h2>
           <div className="actions mini">
+            <button className="ghost small" onClick={startNewConnection}>
+              New
+            </button>
             {showConnectionForm && (
               <button form="connection-form" type="submit" className="small">
                 Save
@@ -338,7 +346,7 @@ export default function App() {
           <h2>Databases</h2>
           <button className="ghost small" onClick={() => void loadDatabases(selectedId, selectedDatabase)}>Refresh</button>
         </div>
-        <div className="tree-list">
+        <div className="tree-list db-list">
           {databases.map((db) => (
             <button
               key={db}
@@ -351,7 +359,7 @@ export default function App() {
         </div>
 
         <h2>Collections</h2>
-        <div className="tree-list">
+        <div className="tree-list collections-list">
           {collections.map((c) => (
             <button
               key={c}
